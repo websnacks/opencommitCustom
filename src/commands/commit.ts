@@ -21,6 +21,7 @@ import {
 } from '@clack/prompts';
 import chalk from 'chalk';
 import { trytm } from '../utils/trytm';
+import { getConfig } from './config';
 
 // Adding a function to get the list of remotes
 const getGitRemotes = async () => {
@@ -28,15 +29,30 @@ const getGitRemotes = async () => {
   return stdout.split('\n').filter((remote) => remote.trim() !== '');
 };
 
+var getGitCurrentBranch = async () => {
+  const { stdout } = await execa("git", ["branch", "--show-current"]);
+  return stdout.trim();
+};
+
+function removeFilenameFromCommitMessage(commitMessage: string): string {
+  return commitMessage.replace(/\([^()]*\)/g, '()')
+}
+
 const generateCommitMessageFromGitDiff = async (
   diff: string,
   extraArgs: string[]
 ): Promise<void> => {
   await assertGitRepo();
 
+  var config2 = getConfig();
+
   const commitSpinner = spinner();
   commitSpinner.start('Generating the commit message');
-  const commitMessage = await generateCommitMessageWithChatCompletion(diff);
+  let commitMessage = await generateCommitMessageWithChatCompletion(diff);
+
+  if(config2?.removeFileName){
+    commitMessage = removeFilenameFromCommitMessage(<string>commitMessage);
+  }
 
   // TODO: show proper error messages
   if (typeof commitMessage !== 'string') {
@@ -78,25 +94,29 @@ ${chalk.grey('——————————————————')}`
 
     outro(stdout);
     const remotes = await getGitRemotes();
+    const currentBranch = await getGitCurrentBranch();
 
     if (remotes.length === 1) {
+      const gitPushCommand = `git push ${remotes[0]} ${currentBranch}`
+
       const isPushConfirmedByUser = await confirm({
-        message: 'Do you want to run `git push`?'
+        message: `Do you want to run \`${gitPushCommand}\`?`
       });
 
       if (isPushConfirmedByUser && !isCancel(isPushConfirmedByUser)) {
         const pushSpinner = spinner();
 
-        pushSpinner.start(`Running \`git push ${remotes[0]}\``);
+        pushSpinner.start(`Running \`${gitPushCommand}\``);
 
         const { stdout } = await execa('git', [
           'push',
           '--verbose',
-          remotes[0]
+          remotes[0],
+          currentBranch
         ]);
 
         pushSpinner.stop(
-          `${chalk.green('✔')} successfully pushed all commits to ${remotes[0]}`
+          `${chalk.green('✔')} successfully pushed all commits to ${remotes[0]} ${currentBranch}`
         );
 
         if (stdout) outro(stdout);

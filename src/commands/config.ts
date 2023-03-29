@@ -12,7 +12,8 @@ export enum CONFIG_KEYS {
   OPENAI_API_KEY = 'OPENAI_API_KEY',
   description = 'description',
   emoji = 'emoji',
-  language = 'language'
+  language = 'language',
+  removeFileName = 'removeFileName'
 }
 
 export enum CONFIG_MODES {
@@ -78,7 +79,17 @@ export const configValidators = {
       `${value} is not supported yet`
     );
     return getI18nLocal(value);
-  }
+  },
+  
+  [CONFIG_KEYS.removeFileName](value: any) {
+    validateConfig(
+      CONFIG_KEYS.removeFileName,
+      typeof value === 'boolean',
+      'Must be true or false'
+    );
+
+    return value;
+  },
 };
 
 export type ConfigType = {
